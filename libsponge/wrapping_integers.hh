@@ -1,6 +1,7 @@
 #ifndef SPONGE_LIBSPONGE_WRAPPING_INTEGERS_HH
 #define SPONGE_LIBSPONGE_WRAPPING_INTEGERS_HH
 
+#include <algorithm>
 #include <cstdint>
 #include <ostream>
 

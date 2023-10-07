@@ -24,9 +24,9 @@ StreamReassembler::StreamReassembler(const size_t capacity)
 //! possibly out-of-order, from the logical stream, and assembles any newly
 //! contiguous substrings and writes them into the output stream in order.
 void StreamReassembler::push_substring(const string &data, const size_t index, const bool eof) {
-    string _data = data;
     bool _eof = eof;
     // remove duplicates
+    string _data = data;
     if (_cur_index > index) {
         if (data.size() + index < _cur_index) {
             return;
@@ -74,18 +74,18 @@ void StreamReassembler::push_substring(const string &data, const size_t index, c
     }
     // deal with overflow situation
     size_t assembled_bytes = _output.buffer_size();
-    if (assembled_bytes + data.size() > _capacity) {
+    if (assembled_bytes + modified_data.size() > _capacity) {
         int end_index = _output.remaining_capacity();
         if (end_index == 0)
             return;
-        _data = data.substr(0, end_index);
+        modified_data = modified_data.substr(0, end_index);
         _eof = false;
     }
     if (_eof) {
         _eof_sign = true;
     }
-    _unassembled_strs[index] = modified_data;
     _unassembled_bytes += modified_data.length();
+    _unassembled_strs[index] = move(modified_data);
     // when current index==index, write data to bytestream.
     if (_cur_index == index) {
         write_data();
