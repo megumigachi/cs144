@@ -16,14 +16,12 @@ class StreamReassembler {
     ByteStream _output;                            //!< The reassembled in-order byte stream
     size_t _capacity;                              //!< The maximum number of bytes
     size_t _cur_index;                             // next index to write to output
-    std::map<int, std::string> _unassembled_strs;  // index to umassembled strs
+    std::map<int, std::string> _unassembled_strs;  // recording index to umassembled strs
     size_t _unassembled_bytes;
     size_t _eof_sign;  // if the max index substring with eof
     // size_t _max_end_index;
 
     void write_data();
-
-    int calUnAssembledBytes();
 
   public:
     //! \brief Construct a `StreamReassembler` that will store up to `capacity` bytes.
@@ -58,6 +56,9 @@ class StreamReassembler {
     //! \brief Is the internal state empty (other than the output stream)?
     //! \returns `true` if no substrings are waiting to be assembled
     bool empty() const;
+
+    // return the index of the first byte the buffer need
+    uint64_t stream_index() const { return _cur_index; }
 };
 
 #endif  // SPONGE_LIBSPONGE_STREAM_REASSEMBLER_HH

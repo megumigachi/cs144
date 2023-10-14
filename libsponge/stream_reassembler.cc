@@ -108,11 +108,3 @@ void StreamReassembler::write_data() {
         _output.end_input();
     }
 }
-
-int StreamReassembler::calUnAssembledBytes() {
-    int sum = 0;
-    for (auto &&it : _unassembled_strs) {
-        sum += it.second.length();
-    }
-    return sum;
-}

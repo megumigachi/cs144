@@ -16,16 +16,57 @@ bool TCPReceiver::segment_received(const TCPSegment &seg) {
     if (header.syn) {
         if (!_syn_received) {
             _syn_received = true;
-            // init isn and ackno
             _isn = header.seqno;
             _ackno = header.seqno + 1;
+            if (header.fin) {
+                _reassembler.push_substring("", convert_i32_to_absolute(_ackno) - 1, true);
+                _ackno = _ackno + 1;
+            }
             return true;
         } else {
             return false;
         }
     }
-    // if the segment contains fin
-    return {};
+
+    bool fin_recv = header.fin;
+    WrappingInt32 seq_no = header.seqno;
+
+    // examine if the segment overflow the receive window
+    string_view data = seg.payload().str();
+    int64_t max_data_length = convert_i32_to_absolute(_ackno) + window_size() - convert_i32_to_absolute(seq_no);
+    if (max_data_length < 0) {
+        return false;
+    }
+
+    if (max_data_length == 0 && !fin_recv) {
+        return false;
+    }
+
+    // if the right part overflow,  trim the string
+    if (max_data_length < static_cast<int64_t>(data.size())) {
+        data = data.substr(0, max_data_length);
+    }
+
+    // if the left part overflow
+    if (convert_i32_to_absolute(seq_no) < convert_i32_to_absolute(_ackno)) {
+        // if there is no overlapping area between recv window and received data, reject it
+        if (convert_i32_to_absolute(seq_no) + data.size() - 1 < convert_i32_to_absolute(_ackno)) {
+            return false;
+        } else {
+            // trim the left part or leave it to reassembler?
+
+            size_t start_idx = convert_i32_to_absolute(_ackno) - convert_i32_to_absolute(seq_no);
+            data = data.substr(start_idx);
+            seq_no = _ackno;
+        }
+    }
+
+    uint64_t stream_index = convert_i32_to_absolute(seq_no) - 1;
+    _reassembler.push_substring(string(data), stream_index, fin_recv);
+    _ackno = convert_absolute_to_i32(_reassembler.stream_index() + 1) + fin_recv;
+    // update checkpoint
+    _checking_point = stream_index;
+    return true;
 }
 
 optional<WrappingInt32> TCPReceiver::ackno() const {
@@ -35,4 +76,4 @@ optional<WrappingInt32> TCPReceiver::ackno() const {
     return _ackno;
 }
 
-size_t TCPReceiver::window_size() const { return {}; }
+size_t TCPReceiver::window_size() const { return _capacity - stream_out().buffer_size(); }

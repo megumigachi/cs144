@@ -26,6 +26,11 @@ class TCPReceiver {
     WrappingInt32 _ackno;
     uint64_t _checking_point;
 
+    // convert wrappintInt32(seq_no/ack_no) to absolute seq number
+    uint64_t convert_i32_to_absolute(WrappingInt32 number) { return unwrap(number, _isn, _checking_point); }
+
+    WrappingInt32 convert_absolute_to_i32(uint64_t abs_number) { return wrap(abs_number, _isn); }
+
   public:
     //! \brief Construct a TCP receiver
     //!
