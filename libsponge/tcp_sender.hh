@@ -32,6 +32,15 @@ class TCPSender {
     //! the (absolute) sequence number for the next byte to be sent
     uint64_t _next_seqno{0};
 
+    // bytes that not acknowledged yet
+    uint64_t _bytes_in_flight{0};
+
+    void push_segment(const TCPSegment &segment) {
+        _segments_out.push(segment);
+        _bytes_in_flight += segment.length_in_sequence_space();
+        _next_seqno += segment.length_in_sequence_space();
+    }
+
   public:
     //! Initialize a TCPSender
     TCPSender(const size_t capacity = TCPConfig::DEFAULT_CAPACITY,

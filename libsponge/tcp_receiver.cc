@@ -54,7 +54,6 @@ bool TCPReceiver::segment_received(const TCPSegment &seg) {
             return false;
         } else {
             // trim the left part or leave it to reassembler?
-
             size_t start_idx = convert_i32_to_absolute(_ackno) - convert_i32_to_absolute(seq_no);
             data = data.substr(start_idx);
             seq_no = _ackno;
