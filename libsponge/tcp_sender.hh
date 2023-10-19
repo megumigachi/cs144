@@ -35,11 +35,12 @@ class TCPSender {
     // bytes that not acknowledged yet
     uint64_t _bytes_in_flight{0};
 
-    void push_segment(const TCPSegment &segment) {
-        _segments_out.push(segment);
-        _bytes_in_flight += segment.length_in_sequence_space();
-        _next_seqno += segment.length_in_sequence_space();
-    }
+    // bytes to send in a segment(no more than MAX_PAYLOAD_SIZE);
+    uint64_t _send_window;
+
+    // TCPSegment make_segment()
+
+    void push_segment(const TCPSegment &segment);
 
   public:
     //! Initialize a TCPSender

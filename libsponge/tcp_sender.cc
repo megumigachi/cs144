@@ -20,9 +20,10 @@ using namespace std;
 TCPSender::TCPSender(const size_t capacity, const uint16_t retx_timeout, const std::optional<WrappingInt32> fixed_isn)
     : _isn(fixed_isn.value_or(WrappingInt32{random_device()()}))
     , _initial_retransmission_timeout{retx_timeout}
-    , _stream(capacity) {
+    , _stream(capacity)
+    , _send_window(TCPConfig().MAX_PAYLOAD_SIZE) {
     TCPSegment init_segment{};
-    // init_segment.payload()=Buffer("");
+    // init_segment.payload() = Buffer("");
     init_segment.header().syn = true;
     init_segment.header().seqno = _isn;
     push_segment(init_segment);
@@ -30,13 +31,29 @@ TCPSender::TCPSender(const size_t capacity, const uint16_t retx_timeout, const s
 
 uint64_t TCPSender::bytes_in_flight() const { return _bytes_in_flight; }
 
-void TCPSender::fill_window() {}
+void TCPSender::push_segment(const TCPSegment &segment) {
+    _segments_out.push(segment);
+    _bytes_in_flight += segment.length_in_sequence_space();
+    _next_seqno += segment.length_in_sequence_space();
+}
+
+void TCPSender::fill_window() {
+    // form TCP sengemt
+    TCPSegment segment{};
+    int segment_len = min(_stream.buffer_size(), _send_window);
+    if (segment_len == 0)
+        return;
+    segment.payload() = Buffer(_stream.read(segment_len));
+    segment.header().seqno = next_seqno();
+    _segments_out.push(segment);
+}
 
 //! \param ackno The remote receiver's ackno (acknowledgment number)
 //! \param window_size The remote receiver's advertised window size
 //! \returns `false` if the ackno appears invalid (acknowledges something the TCPSender hasn't sent yet)
 bool TCPSender::ack_received(const WrappingInt32 ackno, const uint16_t window_size) {
-    DUMMY_CODE(ackno, window_size);
+    _next_seqno = unwrap(ackno, _isn, _next_seqno);
+    DUMMY_CODE(window_size);
     return {};
 }
 
