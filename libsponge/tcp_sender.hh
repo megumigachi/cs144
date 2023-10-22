@@ -38,13 +38,21 @@ class TCPSender {
     // bytes to send in a segment(no more than MAX_PAYLOAD_SIZE);
     uint64_t _send_window;
 
+    bool _syn_sent{false};
+
     // outstanding segments that may need to be retransmitted
-    deque<TCPSegment> _outstanding_segments{};
+    std::deque<TCPSegment> _outstanding_segments{};
 
-    TCPSegment make_segment();
+    // the last (absolute) ack number received
+    uint64_t _ack_recv{0};
 
-    // send a tcp segment and put it waiting for retransmit
+    // send a tcp segment and put it in  retransmit queue
     void push_segment(const TCPSegment &segment);
+
+    // remove all outstanding segments in the retransmit queue
+    void clear_outstanding_segments(uint64_t ackno);
+
+    void retransmit();
 
   public:
     //! Initialize a TCPSender
