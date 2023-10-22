@@ -29,12 +29,17 @@ TCPSender::TCPSender(const size_t capacity, const uint16_t retx_timeout, const s
     push_segment(init_segment);
 }
 
-uint64_t TCPSender::bytes_in_flight() const { return _bytes_in_flight; }
+uint64_t TCPSender::bytes_in_flight() const {
+    uint64_t sum = 0;
+    for (const TCPSegment &segment : _outstanding_segments) {
+        sum += segment.length_in_sequence_space();
+    }
+    return sum;
+}
 
 void TCPSender::push_segment(const TCPSegment &segment) {
     _segments_out.push(segment);
-    _bytes_in_flight += segment.length_in_sequence_space();
-    _next_seqno += segment.length_in_sequence_space();
+    _outstanding_segments.push_back(segment);
 }
 
 void TCPSender::fill_window() {
@@ -53,9 +58,12 @@ void TCPSender::fill_window() {
 //! \returns `false` if the ackno appears invalid (acknowledges something the TCPSender hasn't sent yet)
 bool TCPSender::ack_received(const WrappingInt32 ackno, const uint16_t window_size) {
     _next_seqno = unwrap(ackno, _isn, _next_seqno);
+    clear_outstanding_segments(_next_seqno);
     DUMMY_CODE(window_size);
     return {};
 }
+
+void TCPSender::clear_outstanding_segments(uint64_t ackno) {}
 
 //! \param[in] ms_since_last_tick the number of milliseconds since the last call to this method
 void TCPSender::tick(const size_t ms_since_last_tick) { DUMMY_CODE(ms_since_last_tick); }

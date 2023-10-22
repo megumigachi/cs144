@@ -38,8 +38,12 @@ class TCPSender {
     // bytes to send in a segment(no more than MAX_PAYLOAD_SIZE);
     uint64_t _send_window;
 
-    // TCPSegment make_segment()
+    // outstanding segments that may need to be retransmitted
+    deque<TCPSegment> _outstanding_segments{};
 
+    TCPSegment make_segment();
+
+    // send a tcp segment and put it waiting for retransmit
     void push_segment(const TCPSegment &segment);
 
   public:
