@@ -2,7 +2,10 @@
 
 #include "tcp_config.hh"
 
+#include <iostream>
 #include <random>
+#include <stdarg.h>
+#include <stdio.h>
 
 // Dummy implementation of a TCP sender
 
@@ -14,6 +17,14 @@ void DUMMY_CODE(Targs &&.../* unused */) {}
 
 using namespace std;
 
+#define DEBUG true
+
+void log(string output) {
+    if (DEBUG) {
+        cout << output << endl;
+    }
+}
+
 //! \param[in] capacity the capacity of the outgoing byte stream
 //! \param[in] retx_timeout the initial amount of time to wait before retransmitting the oldest outstanding segment
 //! \param[in] fixed_isn the Initial Sequence Number to use, if set (otherwise uses a random ISN)
@@ -22,11 +33,14 @@ TCPSender::TCPSender(const size_t capacity, const uint16_t retx_timeout, const s
     , _initial_retransmission_timeout{retx_timeout}
     , _stream(capacity)
     , _send_window(1)
-    , _RTO(retx_timeout) {}
+    , _RTO(retx_timeout) {
+    log("TCP Sender: init");
+}
 
 uint64_t TCPSender::bytes_in_flight() const { return _bytes_in_flight; }
 
 void TCPSender::push_segment(const TCPSegment &segment) {
+    log("push segment , content :" + string(segment.payload().str()));
     _segments_out.push(segment);
     _next_seqno += segment.length_in_sequence_space();
 
@@ -41,6 +55,7 @@ void TCPSender::fill_window() {
         TCPSegment init_segment{};
         init_segment.header().syn = true;
         init_segment.header().seqno = _isn;
+        log("sent init segment with syn");
         push_segment(init_segment);
         _syn_sent = true;
         return;
@@ -54,8 +69,12 @@ void TCPSender::fill_window() {
     TCPSegment segment{};
     size_t remaining_window = _send_window == 0 ? 1 : _send_window + _ack_recv - _next_seqno;
     size_t segment_len = min(_stream.buffer_size(), remaining_window);
+    if (segment_len == 0) {
+        return;
+    }
     segment.payload() = Buffer(_stream.read(segment_len));
     segment.header().seqno = next_seqno();
+    log("fill window");
     push_segment(segment);
 }
 
@@ -63,6 +82,7 @@ void TCPSender::fill_window() {
 //! \param window_size The remote receiver's advertised window size
 //! \returns `false` if the ackno appears invalid (acknowledges something the TCPSender hasn't sent yet)
 bool TCPSender::ack_received(const WrappingInt32 ackno, const uint16_t window_size) {
+    log("ack received, abs ack:" + to_string(unwrap(ackno, _isn, _ack_recv)));
     _send_window = window_size;
     uint64_t this_ack = unwrap(ackno, _isn, _ack_recv);
     // if this ack is out of order, do fast retransmitting
@@ -80,7 +100,9 @@ bool TCPSender::ack_received(const WrappingInt32 ackno, const uint16_t window_si
 
     _ack_recv = this_ack;
     clear_outstanding_segments(_ack_recv);
-    fill_window();
+
+    // log("ack received,now begin fill window");
+    // fill_window();
     return true;
 }
 
@@ -127,6 +149,7 @@ void TCPSender::tick(const size_t ms_since_last_tick) {
 unsigned int TCPSender::consecutive_retransmissions() const { return _consecutive_retransmissions; }
 
 void TCPSender::send_empty_segment() {
+    log("send empty segment");
     TCPSegment seg;
     seg.header().seqno = next_seqno();
     _segments_out.push(seg);
