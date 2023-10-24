@@ -21,7 +21,8 @@ TCPSender::TCPSender(const size_t capacity, const uint16_t retx_timeout, const s
     : _isn(fixed_isn.value_or(WrappingInt32{random_device()()}))
     , _initial_retransmission_timeout{retx_timeout}
     , _stream(capacity)
-    , _send_window(1) {}
+    , _send_window(1)
+    , _RTO(retx_timeout) {}
 
 uint64_t TCPSender::bytes_in_flight() const { return _bytes_in_flight; }
 
@@ -31,6 +32,8 @@ void TCPSender::push_segment(const TCPSegment &segment) {
 
     _outstanding_segments.push_back(segment);
     _bytes_in_flight += segment.length_in_sequence_space();
+
+    _timer.start(_RTO);
 }
 
 void TCPSender::fill_window() {
@@ -49,7 +52,7 @@ void TCPSender::fill_window() {
     }
     // form TCP sengemt
     TCPSegment segment{};
-    size_t remaining_window = _send_window + _ack_recv - _next_seqno;
+    size_t remaining_window = _send_window == 0 ? 1 : _send_window + _ack_recv - _next_seqno;
     size_t segment_len = min(_stream.buffer_size(), remaining_window);
     segment.payload() = Buffer(_stream.read(segment_len));
     segment.header().seqno = next_seqno();
@@ -61,16 +64,18 @@ void TCPSender::fill_window() {
 //! \returns `false` if the ackno appears invalid (acknowledges something the TCPSender hasn't sent yet)
 bool TCPSender::ack_received(const WrappingInt32 ackno, const uint16_t window_size) {
     _send_window = window_size;
-    if (_send_window == 0) {
-        _send_window = 1;
-    }
     uint64_t this_ack = unwrap(ackno, _isn, _ack_recv);
     // if this ack is out of order, do fast retransmitting
     if (this_ack > _next_seqno) {
         return false;
     }
-    if (this_ack < _ack_recv) {
+    if (this_ack <= _ack_recv) {
         return true;
+    }
+    // if new segment is acknowledged, reset retransmit timer
+    if (this_ack > _ack_recv) {
+        _RTO = _initial_retransmission_timeout;
+        _consecutive_retransmissions = 0;
     }
 
     _ack_recv = this_ack;
@@ -90,19 +95,36 @@ void TCPSender::clear_outstanding_segments(uint64_t ackno) {
             break;
         }
     }
+    if (_outstanding_segments.empty()) {
+        _timer.turn_off();
+    }
 }
 
 void TCPSender::retransmit() {
     if (_outstanding_segments.empty()) {
         return;
     }
+
     _segments_out.push(_outstanding_segments.front());
+    // what's the difference between the value of send window is 0 and 1?
+    // Idk , but follow the guide of lab3
+    // maybe I have a wrong understanding of 'window size'?
+    if (_send_window) {
+        _consecutive_retransmissions++;
+        _RTO = _RTO * 2;
+    }
+    _timer.start(_RTO);
 }
 
 //! \param[in] ms_since_last_tick the number of milliseconds since the last call to this method
-void TCPSender::tick(const size_t ms_since_last_tick) { DUMMY_CODE(ms_since_last_tick); }
+void TCPSender::tick(const size_t ms_since_last_tick) {
+    _timer.time_passed(ms_since_last_tick);
+    if (_timer.expired()) {
+        retransmit();
+    }
+}
 
-unsigned int TCPSender::consecutive_retransmissions() const { return {}; }
+unsigned int TCPSender::consecutive_retransmissions() const { return _consecutive_retransmissions; }
 
 void TCPSender::send_empty_segment() {
     TCPSegment seg;

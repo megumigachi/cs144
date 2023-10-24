@@ -4,6 +4,7 @@
 #include "byte_stream.hh"
 #include "tcp_config.hh"
 #include "tcp_segment.hh"
+#include "timer.hh"
 #include "wrapping_integers.hh"
 
 #include <functional>
@@ -40,6 +41,10 @@ class TCPSender {
 
     bool _syn_sent{false};
 
+    unsigned int _RTO;
+
+    Timer _timer{};
+
     // outstanding segments that may need to be retransmitted
     std::deque<TCPSegment> _outstanding_segments{};
 
@@ -53,6 +58,8 @@ class TCPSender {
     void clear_outstanding_segments(uint64_t ackno);
 
     void retransmit();
+
+    unsigned int _consecutive_retransmissions{0};
 
   public:
     //! Initialize a TCPSender
