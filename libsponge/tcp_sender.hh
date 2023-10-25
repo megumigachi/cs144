@@ -41,6 +41,8 @@ class TCPSender {
 
     bool _syn_sent{false};
 
+    bool _fin_sent{false};
+
     unsigned int _RTO;
 
     Timer _timer{};

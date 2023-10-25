@@ -51,29 +51,37 @@ void TCPSender::push_segment(const TCPSegment &segment) {
 }
 
 void TCPSender::fill_window() {
+    TCPSegment segment{};
+
+    // if syn hasn't been sent , send a syn segment
     if (!_syn_sent) {
-        TCPSegment init_segment{};
-        init_segment.header().syn = true;
-        init_segment.header().seqno = _isn;
+        segment.header().syn = true;
+        segment.header().seqno = _isn;
         log("sent init segment with syn");
-        push_segment(init_segment);
+        push_segment(segment);
         _syn_sent = true;
         return;
     }
 
-    // if there is nothing to read from buffer, return false
-    if (_stream.buffer_size() == 0) {
-        return;
-    }
     // form TCP sengemt
-    TCPSegment segment{};
     size_t remaining_window = _send_window == 0 ? 1 : _send_window + _ack_recv - _next_seqno;
     size_t segment_len = min(_stream.buffer_size(), remaining_window);
-    if (segment_len == 0) {
+
+    // if there is nothing to read from buffer,
+    // and the input stream didn't reach eof
+    // return false
+    if (segment_len == 0 && !_stream.eof()) {
         return;
     }
+
     segment.payload() = Buffer(_stream.read(segment_len));
     segment.header().seqno = next_seqno();
+
+    // if the input buffer reaches eof, send a fin segment
+    if (_stream.eof()) {
+        log("form fin segment");
+        segment.header().fin = true;
+    }
     log("fill window");
     push_segment(segment);
 }
