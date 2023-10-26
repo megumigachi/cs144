@@ -34,6 +34,7 @@ TCPSender::TCPSender(const size_t capacity, const uint16_t retx_timeout, const s
     , _stream(capacity)
     , _send_window(1)
     , _RTO(retx_timeout) {
+    log("-----------------------------------------");
     log("TCP Sender: init");
 }
 
@@ -63,6 +64,11 @@ void TCPSender::fill_window() {
         return;
     }
 
+    // if fin has been sent, the sender will only retransmit segments
+    if (_fin_sent) {
+        return;
+    }
+
     // form TCP sengemt
     size_t remaining_window = _send_window == 0 ? 1 : _send_window + _ack_recv - _next_seqno;
     size_t segment_len = min(_stream.buffer_size(), remaining_window);
@@ -77,10 +83,12 @@ void TCPSender::fill_window() {
     segment.payload() = Buffer(_stream.read(segment_len));
     segment.header().seqno = next_seqno();
 
-    // if the input buffer reaches eof, send a fin segment
-    if (_stream.eof()) {
+    // if the input buffer reaches eof, and there is remaining window for fin flag
+    // send a fin segment
+    if (_stream.eof() && remaining_window > segment_len) {
         log("form fin segment");
         segment.header().fin = true;
+        _fin_sent = true;
     }
     log("fill window");
     push_segment(segment);
