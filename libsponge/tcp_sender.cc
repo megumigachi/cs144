@@ -1,29 +1,24 @@
 #include "tcp_sender.hh"
 
+#include "logger.hh"
 #include "tcp_config.hh"
 
 #include <iostream>
 #include <random>
-#include <stdarg.h>
-#include <stdio.h>
 
 // Dummy implementation of a TCP sender
 
 // For Lab 3, please replace with a real implementation that passes the
 // automated checks run by `make check_lab3`.
 
-template <typename... Targs>
-void DUMMY_CODE(Targs &&.../* unused */) {}
+#define DEBUG 0
 
-using namespace std;
-
-#define DEBUG true
-
-void log(string output) {
+void log(std::string output) {
     if (DEBUG) {
-        cout << output << endl;
+        std::cout << output << std::endl;
     }
 }
+using namespace std;
 
 //! \param[in] capacity the capacity of the outgoing byte stream
 //! \param[in] retx_timeout the initial amount of time to wait before retransmitting the oldest outstanding segment
@@ -69,21 +64,24 @@ void TCPSender::fill_window() {
         return;
     }
 
-    // form TCP sengemt
     size_t remaining_window = _send_window == 0 ? 1 : _send_window + _ack_recv - _next_seqno;
-    size_t segment_len = min(_stream.buffer_size(), remaining_window);
 
     // if there is nothing to read from buffer,
-    // and the input stream didn't reach eof
-    // return false
-    if (segment_len == 0 && !_stream.eof()) {
+    // and the input stream didn't reach eof, return
+    if (_stream.buffer_size() == 0 && !_stream.eof()) {
         return;
     }
 
+    if (remaining_window == 0) {
+        return;
+    }
+
+    // form TCP sengemt
+    size_t segment_len = min(_stream.buffer_size(), remaining_window);
     segment.payload() = Buffer(_stream.read(segment_len));
     segment.header().seqno = next_seqno();
 
-    // if the input buffer reaches eof, and there is remaining window for fin flag
+    // if the input buffer reaches eof, and there is remaining place for fin flag
     // send a fin segment
     if (_stream.eof() && remaining_window > segment_len) {
         log("form fin segment");
