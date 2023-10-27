@@ -2,13 +2,21 @@
 
 #include <iostream>
 
+#define DEBUG 1
+
+void log(std::string output) {
+    if (DEBUG) {
+        std::cout << output << std::endl;
+    }
+}
+
 // Dummy implementation of a TCP connection
 
 // For Lab 4, please replace with a real implementation that passes the
 // automated checks run by `make check`.
 
 template <typename... Targs>
-void DUMMY_CODE(Targs &&... /* unused */) {}
+void DUMMY_CODE(Targs &&.../* unused */) {}
 
 using namespace std;
 
