@@ -12,6 +12,8 @@ class TCPConnection {
     TCPConfig _cfg;
     TCPReceiver _receiver{_cfg.recv_capacity};
     TCPSender _sender{_cfg.send_capacity, _cfg.rt_timeout, _cfg.fixed_isn};
+    size_t _ms_passed{0};
+    size_t _ms_passed_on_last_segment{0};
 
     //! outbound queue of segments that the TCPConnection wants sent
     std::queue<TCPSegment> _segments_out{};
