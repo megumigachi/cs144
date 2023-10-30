@@ -28,7 +28,7 @@ size_t TCPConnection::unassembled_bytes() const { return _receiver.unassembled_b
 
 size_t TCPConnection::time_since_last_segment_received() const { return _ms_passed - _ms_passed_on_last_segment; }
 
-void TCPConnection::segment_received(const TCPSegment &seg) { DUMMY_CODE(seg); }
+void TCPConnection::segment_received(const TCPSegment &seg) { _ms_passed_on_last_segment = _ms_passed; }
 
 bool TCPConnection::active() const { return {}; }
 
@@ -43,9 +43,9 @@ void TCPConnection::tick(const size_t ms_since_last_tick) {
     _sender.tick(ms_since_last_tick);
 }
 
-void TCPConnection::end_input_stream() {}
+void TCPConnection::end_input_stream() { _sender.stream_in().end_input(); }
 
-void TCPConnection::connect() {}
+void TCPConnection::connect() { _sender.fill_window(); }
 
 TCPConnection::~TCPConnection() {
     try {
