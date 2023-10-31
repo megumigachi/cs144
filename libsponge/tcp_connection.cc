@@ -2,14 +2,6 @@
 
 #include <iostream>
 
-#define DEBUG 1
-
-void log(std::string output) {
-    if (DEBUG) {
-        std::cout << output << std::endl;
-    }
-}
-
 // Dummy implementation of a TCP connection
 
 // For Lab 4, please replace with a real implementation that passes the
@@ -28,7 +20,16 @@ size_t TCPConnection::unassembled_bytes() const { return _receiver.unassembled_b
 
 size_t TCPConnection::time_since_last_segment_received() const { return _ms_passed - _ms_passed_on_last_segment; }
 
-void TCPConnection::segment_received(const TCPSegment &seg) { _ms_passed_on_last_segment = _ms_passed; }
+void TCPConnection::segment_received(const TCPSegment &seg) {
+    _ms_passed_on_last_segment = _ms_passed;
+    if (seg.header().ack) {
+        if (!_sender.ack_received(seg.header().ackno, seg.header().win)) {
+            _sender.send_empty_segment();
+        }
+        _sender.fill_window();
+    }
+    _receiver.segment_received(seg);
+}
 
 bool TCPConnection::active() const { return {}; }
 

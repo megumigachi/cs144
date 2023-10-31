@@ -6,19 +6,12 @@
 #include <iostream>
 #include <random>
 
-// Dummy implementation of a TCP sender
+#define log DUMMY_CODE
 
-// For Lab 3, please replace with a real implementation that passes the
-// automated checks run by `make check_lab3`.
-
-#define DEBUG 0
-
-void log(std::string output) {
-    if (DEBUG) {
-        std::cout << output << std::endl;
-    }
-}
 using namespace std;
+
+template <typename... Targs>
+void DUMMY_CODE(Targs &&.../* unused */) {}
 
 //! \param[in] capacity the capacity of the outgoing byte stream
 //! \param[in] retx_timeout the initial amount of time to wait before retransmitting the oldest outstanding segment
