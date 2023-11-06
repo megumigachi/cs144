@@ -1,7 +1,8 @@
 #include "tcp_connection.hh"
 
-#include <iostream>
+#include "logger.hh"
 
+#include <iostream>
 // Dummy implementation of a TCP connection
 
 // For Lab 4, please replace with a real implementation that passes the
@@ -24,7 +25,8 @@ void TCPConnection::segment_received(const TCPSegment &seg) {
     _ms_passed_on_last_segment = _ms_passed;
     if (seg.header().ack) {
         if (!_sender.ack_received(seg.header().ackno, seg.header().win)) {
-            _sender.send_empty_segment();
+            // log("sender.ack_received returned false");
+            //_sender.send_empty_segment();
         }
         _sender.fill_window();
     }

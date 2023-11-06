@@ -1,14 +1,12 @@
+// logger.h
 #ifndef LIBSPONGE_LOGGER
 #define LIBSPONGE_LOGGER
 
 #include <iostream>
+#include <string>
 
 #define DEBUG 1
 
-void log(std::string output) {
-    if (DEBUG) {
-        std::cout << output << std::endl;
-    }
-}
+void log(const std::string &output);
 
-#endif
+#endif  // LIBSPONGE_LOGGER
