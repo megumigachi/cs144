@@ -28,7 +28,7 @@ void TCPConnection::segment_received(const TCPSegment &seg) {
             // log("sender.ack_received returned false");
             //_sender.send_empty_segment();
         }
-        _sender.fill_window();
+        send_segments();
     }
     _receiver.segment_received(seg);
 }
@@ -48,7 +48,16 @@ void TCPConnection::tick(const size_t ms_since_last_tick) {
 
 void TCPConnection::end_input_stream() { _sender.stream_in().end_input(); }
 
-void TCPConnection::connect() { _sender.fill_window(); }
+void TCPConnection::send_segments() {
+    _sender.fill_window();
+    auto &segments_out = _sender.segments_out();
+    while (!segments_out.empty()) {
+        _segments_out.push(segments_out.front());
+        segments_out.pop();
+    }
+}
+
+void TCPConnection::connect() { send_segments(); }
 
 TCPConnection::~TCPConnection() {
     try {
