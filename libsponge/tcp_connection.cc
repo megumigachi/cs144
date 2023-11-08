@@ -25,7 +25,7 @@ void TCPConnection::segment_received(const TCPSegment &seg) {
     _ms_passed_on_last_segment = _ms_passed;
     if (seg.header().ack) {
         if (!_sender.ack_received(seg.header().ackno, seg.header().win)) {
-            // log("sender.ack_received returned false");
+            log("sender.ack_received returned false");
             //_sender.send_empty_segment();
         }
         send_segments();
@@ -33,7 +33,10 @@ void TCPConnection::segment_received(const TCPSegment &seg) {
     _receiver.segment_received(seg);
 }
 
-bool TCPConnection::active() const { return {}; }
+bool TCPConnection::active() const {
+    return (!_sender.stream_in().input_ended()) || (!_receiver.stream_out().input_ended()) ||
+           _linger_after_streams_finish;
+}
 
 size_t TCPConnection::write(const string &data) {
     DUMMY_CODE(data);
