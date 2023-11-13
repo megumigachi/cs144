@@ -24,17 +24,19 @@ size_t TCPConnection::time_since_last_segment_received() const { return _ms_pass
 void TCPConnection::segment_received(const TCPSegment &seg) {
     _ms_passed_on_last_segment = _ms_passed;
     string recv_state = TCPState::state_summary(_receiver);
-    if (!seg.header().syn && recv_state == TCPReceiverStateSummary::LISTEN) {
+    // If receiver has not received syn, discard segments without syn
+    if (recv_state == TCPReceiverStateSummary::LISTEN && !seg.header().syn) {
         return;
     }
+    // pass the segment to receiver and update ackno
     _receiver.segment_received(seg);
+
     if (seg.header().ack) {
         if (!_sender.ack_received(seg.header().ackno, seg.header().win)) {
             log("sender.ack_received returned false");
-            //_sender.send_empty_segment();
         }
-        send_segments();
     }
+    send_segments();
 }
 
 bool TCPConnection::active() const {
@@ -59,7 +61,13 @@ void TCPConnection::send_segments() {
     _sender.fill_window();
     auto &segments_out = _sender.segments_out();
     while (!segments_out.empty()) {
-        _segments_out.push(segments_out.front());
+        // put ack number
+        TCPSegment seg = segments_out.front();
+        if (_receiver.ackno().has_value()) {
+            seg.header().ack = 1;
+            seg.header().ackno = _receiver.ackno().value();
+        }
+        _segments_out.push(seg);
         segments_out.pop();
     }
 }
