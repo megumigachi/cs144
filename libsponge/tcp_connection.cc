@@ -23,6 +23,11 @@ size_t TCPConnection::time_since_last_segment_received() const { return _ms_pass
 
 void TCPConnection::segment_received(const TCPSegment &seg) {
     _ms_passed_on_last_segment = _ms_passed;
+    string recv_state = TCPState::state_summary(_receiver);
+    if (!seg.header().syn && recv_state == TCPReceiverStateSummary::LISTEN) {
+        return;
+    }
+    _receiver.segment_received(seg);
     if (seg.header().ack) {
         if (!_sender.ack_received(seg.header().ackno, seg.header().win)) {
             log("sender.ack_received returned false");
@@ -30,7 +35,6 @@ void TCPConnection::segment_received(const TCPSegment &seg) {
         }
         send_segments();
     }
-    _receiver.segment_received(seg);
 }
 
 bool TCPConnection::active() const {
