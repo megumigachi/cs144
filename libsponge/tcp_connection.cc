@@ -23,20 +23,27 @@ size_t TCPConnection::time_since_last_segment_received() const { return _ms_pass
 
 void TCPConnection::segment_received(const TCPSegment &seg) {
     _ms_passed_on_last_segment = _ms_passed;
-    string recv_state = TCPState::state_summary(_receiver);
+    // string recv_state = TCPState::state_summary(_receiver);
     // If receiver has not received syn, discard segments without syn
-    if (recv_state == TCPReceiverStateSummary::LISTEN && !seg.header().syn) {
+    if (TCPState::state_summary(_receiver) == TCPReceiverStateSummary::LISTEN && !seg.header().syn) {
         return;
     }
     // pass the segment to receiver and update ackno
     _receiver.segment_received(seg);
+
+    // the third handshake:ack
+    // because the payload of  "pure" ack segment=0, fill_window() will not work
+    // if (TCPState::state_summary(_)) {
+    //     /* code */
+    // }
 
     if (seg.header().ack) {
         if (!_sender.ack_received(seg.header().ackno, seg.header().win)) {
             log("sender.ack_received returned false");
         }
     }
-    send_segments();
+    _sender.fill_window();
+    add_ack_and_send_segments();
 }
 
 bool TCPConnection::active() const {
@@ -57,8 +64,7 @@ void TCPConnection::tick(const size_t ms_since_last_tick) {
 
 void TCPConnection::end_input_stream() { _sender.stream_in().end_input(); }
 
-void TCPConnection::send_segments() {
-    _sender.fill_window();
+void TCPConnection::add_ack_and_send_segments() {
     auto &segments_out = _sender.segments_out();
     while (!segments_out.empty()) {
         // put ack number
@@ -72,7 +78,14 @@ void TCPConnection::send_segments() {
     }
 }
 
-void TCPConnection::connect() { send_segments(); }
+void TCPConnection::connect() {
+    if (TCPState::state_summary(_sender) != TCPSenderStateSummary::CLOSED) {
+        log("cannot connect");
+        return;
+    }
+    _sender.fill_window();
+    add_ack_and_send_segments();
+}
 
 TCPConnection::~TCPConnection() {
     try {
