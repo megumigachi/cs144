@@ -57,8 +57,9 @@ bool TCPConnection::active() const {
 }
 
 size_t TCPConnection::write(const string &data) {
-    DUMMY_CODE(data);
-    return {};
+    size_t written_len = _sender.stream_in().write(data);
+    _sender.fill_window();
+    return written_len;
 }
 
 //! \param[in] ms_since_last_tick number of milliseconds since the last call to this method
