@@ -28,17 +28,19 @@ void TCPConnection::segment_received(const TCPSegment &seg) {
     if (TCPState::state_summary(_receiver) == TCPReceiverStateSummary::LISTEN && !seg.header().syn) {
         return;
     }
-    // pass the segment to receiver and update ackno
-    _receiver.segment_received(seg);
+    bool need_ack = seg.length_in_sequence_space();
 
-    // the second handshake:syn-ack
+    // if segment's length is not 0, pass the segment to receiver and update ackno
+    if (need_ack) {
+        _receiver.segment_received(seg);
+    }
+
+    // execute the second handshake:syn-ack
     if (TCPState::state_summary(_receiver) == TCPReceiverStateSummary::SYN_RECV &&
         TCPState::state_summary(_sender) == TCPSenderStateSummary::CLOSED && (seg.header().syn)) {
         connect();
         return;
     }
-
-    bool need_ack = seg.length_in_sequence_space();
 
     if (seg.header().ack) {
         if (!_sender.ack_received(seg.header().ackno, seg.header().win)) {
@@ -102,6 +104,9 @@ TCPConnection::~TCPConnection() {
             cerr << "Warning: Unclean shutdown of TCPConnection\n";
 
             // Your code here: need to send a RST segment to the peer
+            TCPSegment seg;
+            seg.header().rst = 1;
+            _segments_out.push(seg);
         }
     } catch (const exception &e) {
         std::cerr << "Exception destructing TCP FSM: " << e.what() << std::endl;
