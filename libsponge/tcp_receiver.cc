@@ -50,7 +50,10 @@ bool TCPReceiver::segment_received(const TCPSegment &seg) {
     // if the left part overflow
     if (convert_i32_to_absolute(seq_no) < convert_i32_to_absolute(_ackno)) {
         // if there is no overlapping area between recv window and received data, reject it
-        if (convert_i32_to_absolute(seq_no) + data.size() - 1 < convert_i32_to_absolute(_ackno)) {
+
+        // test fsm_listen_relaxed: fix a bug: convert_i32_to_absolute(seq_no) + data.size() - 1
+        // may less than 0 and lead to a overflow(cuz it is an unsigned int)
+        if (convert_i32_to_absolute(seq_no) + data.size() < convert_i32_to_absolute(_ackno) + 1) {
             return false;
         } else {
             // trim the left part or leave it to reassembler?
