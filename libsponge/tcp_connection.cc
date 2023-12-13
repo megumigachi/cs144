@@ -23,17 +23,22 @@ size_t TCPConnection::time_since_last_segment_received() const { return _ms_pass
 
 void TCPConnection::segment_received(const TCPSegment &seg) {
     _ms_passed_on_last_segment = _ms_passed;
+
     // string recv_state = TCPState::state_summary(_receiver);
     // If receiver has not received syn, discard segments without syn
     if (TCPState::state_summary(_receiver) == TCPReceiverStateSummary::LISTEN && !seg.header().syn) {
         return;
     }
-    bool need_ack = seg.length_in_sequence_space();
 
-    // if segment's length is not 0, pass the segment to receiver and update ackno
-    if (need_ack) {
-        _receiver.segment_received(seg);
+    if (seg.header().rst) {
+        reset_connection();
+        return;
     }
+
+    // pass the segment to receiver and update ackno
+    // and if the seqno of an ack segment is wrong, need to ack it and send a correct ackno
+    bool right_segseq = _receiver.segment_received(seg);
+    bool need_ack = seg.length_in_sequence_space() || !right_segseq;
 
     // execute the second handshake:syn-ack
     if (TCPState::state_summary(_receiver) == TCPReceiverStateSummary::SYN_RECV &&
@@ -49,7 +54,7 @@ void TCPConnection::segment_received(const TCPSegment &seg) {
     }
     if (need_ack) {
         _sender.fill_window();
-        add_ack_and_send_segments();
+        add_ackwin_and_send_segments();
     }
 }
 
@@ -72,18 +77,25 @@ void TCPConnection::tick(const size_t ms_since_last_tick) {
 
 void TCPConnection::end_input_stream() { _sender.stream_in().end_input(); }
 
-void TCPConnection::add_ack_and_send_segments() {
+void TCPConnection::reset_connection() {
+    _sender.stream_in().set_error();
+    _receiver.stream_out().set_error();
+    _linger_after_streams_finish = false;
+}
+
+void TCPConnection::add_ackwin_and_send_segments() {
     if (_sender.segments_out().empty()) {
         _sender.send_empty_segment();
     }
     auto &segments_out = _sender.segments_out();
     while (!segments_out.empty()) {
-        // put ack number
+        // put ack number and win number
         TCPSegment seg = segments_out.front();
         if (_receiver.ackno().has_value()) {
             seg.header().ack = 1;
             seg.header().ackno = _receiver.ackno().value();
         }
+        seg.header().win = _receiver.window_size();
         _segments_out.push(seg);
         segments_out.pop();
     }
@@ -95,7 +107,7 @@ void TCPConnection::connect() {
         return;
     }
     _sender.fill_window();
-    add_ack_and_send_segments();
+    add_ackwin_and_send_segments();
 }
 
 TCPConnection::~TCPConnection() {
@@ -104,6 +116,8 @@ TCPConnection::~TCPConnection() {
             cerr << "Warning: Unclean shutdown of TCPConnection\n";
 
             // Your code here: need to send a RST segment to the peer
+            reset_connection();
+
             TCPSegment seg;
             seg.header().rst = 1;
             _segments_out.push(seg);
